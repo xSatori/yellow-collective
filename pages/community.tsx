@@ -14,8 +14,8 @@ export default function CommunityPage() {
         <div className="flex flex-col gap-3">
           <h1 className="text-[36px] leading-none md:text-[44px]">Community</h1>
           <p className="max-w-[720px] text-base leading-snug text-secondary md:text-lg">
-            A gallery of projects, events, grants, art, and experiments from the
-            Yellow Collective community.
+            A gallery of projects, events, art, and community work from the
+            Yellow Collective.
           </p>
         </div>
 

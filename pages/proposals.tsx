@@ -188,7 +188,25 @@ export default function ProposalsPage({
 
       <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-8 pb-12">
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-[36px] leading-none md:text-[44px]">Proposals</h1>
+          <div className="flex items-center gap-5">
+            <h1 className="text-[36px] leading-none md:text-[44px]">
+              Proposals
+            </h1>
+            <div className="flex rounded-2xl border border-skin-stroke bg-skin-muted p-1 shadow-sm">
+              <Link
+                href="/proposals"
+                className="rounded-xl bg-[#fff7bf] px-4 py-2 font-heading text-base text-skin-base"
+              >
+                Yellow Collective
+              </Link>
+              <Link
+                href="/proposals/nouns"
+                className="rounded-xl px-4 py-2 font-heading text-base text-secondary transition hover:bg-[#fff7bf] hover:text-skin-base"
+              >
+                Nouns DAO
+              </Link>
+            </div>
+          </div>
           <Link
             href="/create-proposal"
             className="rounded-xl bg-skin-base px-6 py-3 font-heading text-lg leading-none text-skin-inverted shadow-sm transition hover:-translate-y-0.5 hover:shadow-md md:text-xl"

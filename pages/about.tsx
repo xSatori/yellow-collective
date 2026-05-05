@@ -12,6 +12,7 @@ import {
   getContractInfo,
   getFounders,
 } from "data/nouns-builder/token";
+import { getEnsName } from "data/ens";
 import { TOKEN_CONTRACT, TOKEN_NETWORK } from "constants/addresses";
 import { ETHERSCAN_BASEURL } from "constants/urls";
 import { YELLOW_COLLECTIVE_CONTRACTS } from "data/contracts";
@@ -25,15 +26,20 @@ import { useMemo } from "react";
 
 type Delegate = {
   address: string;
+  displayName: string | null;
   votes: number;
   votePercent: number;
   joined?: string;
 };
 
+type FounderWithDisplayName = Founder & {
+  displayName: string | null;
+};
+
 type AboutPageProps = {
   contract: ContractInfo;
   addresses: DAOAddresses;
-  founders: Founder[];
+  founders: FounderWithDisplayName[];
   delegates: Delegate[];
   treasuryBalance: string | null;
 };
@@ -113,6 +119,7 @@ const normalizeMembers = (
 
       return {
         address,
+        displayName: null,
         votes,
         votePercent:
           explicitVotePercent ||
@@ -150,6 +157,34 @@ const getTotalSupply = (contract: ContractInfo) => {
   }
 };
 
+const resolveEnsNames = async (addresses: string[]) => {
+  const names = new Map<string, string>();
+  const uniqueAddresses = Array.from(
+    new Set(addresses.map((address) => address.toLowerCase()))
+  );
+
+  for (let i = 0; i < uniqueAddresses.length; i += 16) {
+    const batch = uniqueAddresses.slice(i, i + 16);
+    const results = await Promise.allSettled(
+      batch.map(async (address) => {
+        const { ensName } = await getEnsName({
+          address: address as `0x${string}`,
+        });
+
+        if (ensName) names.set(address, ensName);
+      })
+    );
+
+    results.forEach((result) => {
+      if (result.status === "rejected") {
+        console.warn("Unable to resolve ENS name", result.reason);
+      }
+    });
+  }
+
+  return names;
+};
+
 export const getStaticProps = async (): Promise<
   GetStaticPropsResult<AboutPageProps>
 > => {
@@ -171,6 +206,24 @@ export const getStaticProps = async (): Promise<
       : getFallbackAddresses();
   const founders =
     foundersResult.status === "fulfilled" ? foundersResult.value : [];
+  const resolvedNames = await resolveEnsNames([
+    ...founders.map((founder) => founder.wallet),
+    ...(delegates.status === "fulfilled"
+      ? delegates.value.map((delegate) => delegate.address)
+      : []),
+  ]);
+  const foundersWithDisplayNames = founders.map((founder) => ({
+    ...founder,
+    displayName: resolvedNames.get(founder.wallet.toLowerCase()) ?? null,
+  }));
+  const delegatesWithDisplayNames =
+    delegates.status === "fulfilled"
+      ? delegates.value.map((delegate) => ({
+          ...delegate,
+          displayName:
+            resolvedNames.get(delegate.address.toLowerCase()) ?? null,
+        }))
+      : [];
 
   let treasuryBalance: string | null = null;
   try {
@@ -185,8 +238,8 @@ export const getStaticProps = async (): Promise<
     props: {
       contract,
       addresses,
-      founders,
-      delegates: delegates.status === "fulfilled" ? delegates.value : [],
+      founders: foundersWithDisplayNames,
+      delegates: delegatesWithDisplayNames,
       treasuryBalance,
     },
     revalidate: 60,
@@ -294,8 +347,18 @@ export default function AboutPage({
               <div className="text-base text-secondary">{stat.label}</div>
               <div className="mt-3 flex items-center gap-3 font-heading text-3xl leading-none text-skin-base">
                 {stat.isChain && (
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-blue text-xl text-white">
-                    =
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0052ff]">
+                    <svg
+                      viewBox="0 0 32 32"
+                      className="h-8 w-8"
+                      aria-hidden="true"
+                    >
+                      <circle cx="16" cy="16" r="16" fill="#0052ff" />
+                      <path
+                        d="M16.25 25.25c4.28 0 7.86-2.98 8.78-6.98h-11.6v-4.54h11.6c-.92-4-4.5-6.98-8.78-6.98a9.25 9.25 0 1 0 0 18.5Z"
+                        fill="white"
+                      />
+                    </svg>
                   </span>
                 )}
                 {stat.value}
@@ -351,7 +414,7 @@ export default function AboutPage({
                       }`}
                     />
                     <span className="truncate text-base font-bold md:text-lg">
-                      {shortenAddress(founder.wallet, 5)}
+                      {founder.displayName || shortenAddress(founder.wallet, 5)}
                     </span>
                   </div>
                   <span className="font-heading text-xl">
@@ -409,7 +472,8 @@ export default function AboutPage({
                         }`}
                       />
                       <span className="truncate">
-                        {shortenAddress(delegate.address, 5)}
+                        {delegate.displayName ||
+                          shortenAddress(delegate.address, 5)}
                       </span>
                     </div>
                     <div>{delegate.votes} Tokens</div>
